@@ -1,0 +1,21 @@
+[
+  {
+    "id": 1,
+    "name": "Weather Extension",
+    "description": "Adds real-time weather info to your project dashboard.",
+    "version": "1.0.0"
+  },
+  {
+    "id":2,
+
+    "name": "Profiler Tool",
+    "description": "Measures frame performance and render timings.",
+    "version": "2.3.1"
+  },
+  {
+    "id":3,
+    "name": "Material Editor",
+    "description": "A tool for creating and editing materials visually.",
+    "version": "1.2.0"
+  }
+]
