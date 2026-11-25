@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ImEngine Plugin Registry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root { --bg:#05070d; --panel:rgba(255,255,255,.035); --border:rgba(120,160,255,.14); --text:#e8ecff; --muted:#8a93b8; --a:#7c5cff; --b:#00e5ff; --danger:#ff4d6d; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font-family:"Space Grotesk",system-ui,sans-serif;
+      background-image:radial-gradient(800px 400px at 85% -10%,rgba(124,92,255,.22),transparent),radial-gradient(600px 400px at 0% 100%,rgba(0,229,255,.12),transparent),
+      linear-gradient(rgba(120,160,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,255,.05) 1px,transparent 1px);
+      background-size:auto,auto,44px 44px,44px 44px; }
+    .wrap { width:min(1100px,100% - 32px); margin:0 auto; padding:56px 0 80px; }
+    .mono { font-family:"JetBrains Mono",monospace; }
+    header { display:flex; justify-content:space-between; align-items:flex-end; gap:24px; flex-wrap:wrap; margin-bottom:36px; }
+    .eyebrow { color:var(--b); font-size:12px; letter-spacing:.3em; text-transform:uppercase; }
+    h1 { font-size:clamp(2.2rem,6vw,3.6rem); margin:10px 0 8px; line-height:1; }
+    h1 span { background:linear-gradient(90deg,var(--a),var(--b)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .sub { color:var(--muted); margin:0; }
+    .status { display:inline-flex; align-items:center; gap:10px; padding:10px 16px; border:1px solid var(--border); border-radius:999px; background:var(--panel); font-size:13px; }
+    .pulse { width:9px; height:9px; border-radius:50%; background:#3dffa2; box-shadow:0 0 12px #3dffa2; animation:p 1.6s infinite; }
+    .pulse.off { background:var(--danger); box-shadow:0 0 12px var(--danger); }
+    @keyframes p { 50% { opacity:.3 } }
+    .layout { display:grid; grid-template-columns:1fr 340px; gap:20px; align-items:start; }
+    .panel { background:var(--panel); border:1px solid var(--border); border-radius:18px; backdrop-filter:blur(12px); }
+    .toolbar { display:flex; gap:12px; margin-bottom:16px; }
+    input, textarea { width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:rgba(0,0,0,.35); color:var(--text); font:inherit; outline:none; transition:border-color .2s, box-shadow .2s; }
+    input:focus, textarea:focus { border-color:var(--b); box-shadow:0 0 0 3px rgba(0,229,255,.15); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+    .card { position:relative; padding:20px; overflow:hidden; transition:transform .2s, border-color .2s; }
+    .card:hover { transform:translateY(-3px); border-color:rgba(0,229,255,.45); }
+    .card::before { content:""; position:absolute; inset:0 0 auto; height:2px; background:linear-gradient(90deg,var(--a),var(--b)); opacity:.7; }
+    .card h3 { margin:0 0 6px; font-size:1.1rem; }
+    .card p { margin:0 0 16px; color:var(--muted); font-size:14px; line-height:1.5; }
+    .meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted); }
+    .ver { padding:3px 9px; border-radius:999px; border:1px solid var(--border); color:var(--b); }
+    .del { background:none; border:0; color:var(--muted); cursor:pointer; font:inherit; font-size:12px; }
+    .del:hover { color:var(--danger); }
+    form { padding:22px; display:grid; gap:12px; position:sticky; top:20px; }
+    form h2 { margin:0 0 4px; font-size:1.1rem; }
+    label { display:grid; gap:6px; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; }
+    button.primary { padding:13px; border:0; border-radius:12px; cursor:pointer; color:#05070d; font:700 15px "Space Grotesk",sans-serif; background:linear-gradient(90deg,var(--a),var(--b)); box-shadow:0 10px 30px rgba(124,92,255,.35); transition:transform .15s; }
+    button.primary:hover { transform:translateY(-1px); }
+    .msg { font-size:13px; min-height:18px; margin:0; color:var(--b); }
+    .msg.err { color:var(--danger); }
+    .empty { padding:40px; text-align:center; color:var(--muted); }
+    .api { margin-top:20px; padding:18px 22px; font-size:13px; color:var(--muted); line-height:1.9; }
+    .api b { color:var(--text); font-weight:600; display:inline-block; min-width:64px; }
+    @media (max-width:860px) { .layout { grid-template-columns:1fr; } form { position:static; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="eyebrow mono">ImEngine // backend</div>
+        <h1>Plugin <span>Registry</span></h1>
+        <p class="sub">Browse, publish and remove extensions for the ImEngine game engine.</p>
+      </div>
+      <div class="status mono"><i class="pulse" id="dot"></i><span id="status">Connecting…</span></div>
+    </header>
+
+    <div class="layout">
+      <section>
+        <div class="toolbar"><input id="search" placeholder="Search plugins…" autocomplete="off" /></div>
+        <div class="grid" id="list"></div>
+        <div class="panel api mono">
+          <div><b>GET</b>/plugins?q=search</div>
+          <div><b>GET</b>/plugins/:id</div>
+          <div><b>POST</b>/plugins { name, description, version }</div>
+          <div><b>DELETE</b>/plugins/:id</div>
+        </div>
+      </section>
+
+      <form class="panel" id="form">
+        <h2>Publish a plugin</h2>
+        <label>Name<input name="name" required maxlength="60" /></label>
+        <label>Description<textarea name="description" rows="3" maxlength="240"></textarea></label>
+        <label>Version<input name="version" value="1.0.0" pattern="\d+\.\d+\.\d+" required class="mono" /></label>
+        <button class="primary" type="submit">Publish</button>
+        <p class="msg" id="msg"></p>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    let timer;
+
+    async function load() {
+      const q = $("search").value.trim();
+      try {
+        const res = await fetch("/plugins" + (q ? "?q=" + encodeURIComponent(q) : ""));
+        const plugins = await res.json();
+        $("dot").className = "pulse";
+        $("status").textContent = "Online · " + plugins.length + " plugin" + (plugins.length === 1 ? "" : "s");
+        $("list").innerHTML = plugins.length
+          ? plugins.map((p) => `
+            <article class="panel card">
+              <h3>${esc(p.name)}</h3>
+              <p>${esc(p.description) || "No description."}</p>
+              <div class="meta mono"><span class="ver">v${esc(p.version)}</span><span>#${esc(p.id)}</span>
+                <button class="del" data-id="${esc(p.id)}">remove</button></div>
+            </article>`).join("")
+          : `<div class="panel empty">No plugins found.</div>`;
+      } catch {
+        $("dot").className = "pulse off";
+        $("status").textContent = "Offline";
+      }
+    }
+
+    $("search").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(load, 200); });
+
+    $("list").addEventListener("click", async (e) => {
+      const id = e.target.dataset.id;
+      if (!id || !confirm("Remove this plugin?")) return;
+      await fetch("/plugins/" + encodeURIComponent(id), { method: "DELETE" });
+      load();
+    });
+
+    $("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = Object.fromEntries(new FormData(e.target));
+      const res = await fetch("/plugins", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      $("msg").className = "msg" + (res.ok ? "" : " err");
+      $("msg").textContent = res.ok ? `Published “${data.name}”.` : data.message || "Could not publish.";
+      if (res.ok) { e.target.reset(); e.target.version.value = "1.0.0"; load(); }
+    });
+
+    load();
+  </script>
+</body>
+</html>

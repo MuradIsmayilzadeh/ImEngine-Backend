@@ -1,76 +1,61 @@
-const express = require('express');
-const cors = require('cors');
-const fs = require('fs');
+const express = require("express");
+const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 
-// === File path for plugins ===
-const pluginsFilePath = 'plugins.json';
+const PORT = process.env.PORT || 8000;
+const pluginsFilePath = path.join(__dirname, "plugins.json");
 
 // === File helpers ===
-const readPluginsFile = () => {
+const readPlugins = () => {
   try {
-    const data = fs.readFileSync(pluginsFilePath, 'utf8');
-    return JSON.parse(data);
+    return JSON.parse(fs.readFileSync(pluginsFilePath, "utf8"));
   } catch (err) {
-    console.error('Error reading plugins file:', err);
+    console.error("Error reading plugins file:", err.message);
     return [];
   }
 };
-
-const writePluginsFile = (plugins) => {
-  try {
-    fs.writeFileSync(pluginsFilePath, JSON.stringify(plugins, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Error writing plugins file:', err);
-  }
-};
+const writePlugins = (plugins) => fs.writeFileSync(pluginsFilePath, JSON.stringify(plugins, null, 2), "utf8");
+const nextId = (plugins) => plugins.reduce((max, p) => Math.max(max, Number(p.id) || 0), 0) + 1;
 
 // === ROUTES ===
+app.get("/health", (req, res) => res.json({ ok: true, plugins: readPlugins().length }));
 
-// Get all plugins
-app.get('/plugins', (req, res) => {
-  const plugins = readPluginsFile();
-  res.json(plugins);
+app.get("/plugins", (req, res) => {
+  const q = String(req.query.q || "").toLowerCase();
+  const plugins = readPlugins();
+  res.json(q ? plugins.filter((p) => `${p.name} ${p.description}`.toLowerCase().includes(q)) : plugins);
 });
 
-// Get plugin by ID (optional, by index)
-app.get('/plugins/:id', (req, res) => {
-  const plugins = readPluginsFile();
-  const id = parseInt(req.params.id);
-  if (id >= 0 && id < plugins.length) {
-    res.json(plugins[id]);
-  } else {
-    res.status(404).send('Plugin not found');
-  }
+app.get("/plugins/:id", (req, res) => {
+  const plugin = readPlugins().find((p) => String(p.id) === req.params.id);
+  if (!plugin) return res.status(404).json({ message: "Plugin not found" });
+  res.json(plugin);
 });
 
-// Add a new plugin
-app.post('/plugins', (req, res) => {
-  const newPlugin = req.body;
-  const plugins = readPluginsFile();
-  newPlugin.id = plugins.length;
-  plugins.push(newPlugin);
-  writePluginsFile(plugins);
-  res.status(201).json(newPlugin);
+app.post("/plugins", (req, res) => {
+  const { name, description = "", version = "1.0.0" } = req.body || {};
+  if (!name || typeof name !== "string") return res.status(400).json({ message: "Plugin name is required" });
+  if (!/^\d+\.\d+\.\d+$/.test(version)) return res.status(400).json({ message: "Version must look like 1.2.3" });
+  const plugins = readPlugins();
+  const plugin = { id: nextId(plugins), name: name.trim(), description: String(description).trim(), version };
+  plugins.push(plugin);
+  writePlugins(plugins);
+  res.status(201).json(plugin);
 });
 
-// Delete a plugin by ID
-app.delete('/plugins/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const plugins = readPluginsFile();
-  if (id >= 0 && id < plugins.length) {
-    plugins.splice(id, 1);
-    writePluginsFile(plugins);
-    res.sendStatus(200);
-  } else {
-    res.status(404).send('Plugin not found');
-  }
+app.delete("/plugins/:id", (req, res) => {
+  const plugins = readPlugins();
+  const index = plugins.findIndex((p) => String(p.id) === req.params.id);
+  if (index === -1) return res.status(404).json({ message: "Plugin not found" });
+  plugins.splice(index, 1);
+  writePlugins(plugins);
+  res.sendStatus(204);
 });
 
-// === Start server ===
-app.listen(8000, () => {
-  console.log('✅ Plugin server running on port 8000');
-});
+app.listen(PORT, () => console.log(`Plugin server running on http://localhost:${PORT}`));
